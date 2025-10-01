@@ -1,38 +1,43 @@
-import { NextApiRequest } from 'next';
-import { WebSocketServer } from 'ws';
-import type { WebSocket } from 'ws';
-import redis from '@/lib/redis';
+// lib/redis.ts
+import { Redis } from '@upstash/redis';
 
-// Keep a single wss instance for hot reloads
-let wss: WebSocketServer;
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
-export default function handler(req: NextApiRequest, res: any) {
-  if (res.socket.server.wss) {
-    console.log('WebSocket server already running');
-    res.end();
-    return;
-  }
+console.log('✅ Upstash Redis configured');
 
-  wss = new WebSocketServer({ server: res.socket.server });
-  res.socket.server.wss = wss;
+export default redis;
 
-  console.log('WebSocket server started');
-
-  wss.on('connection', (ws: WebSocket) => {
-    console.log('New client connected');
-
-    ws.on('close', () => {
-      console.log('Client disconnected');
-    });
-
-    ws.on('error', (error: Error) => {
-      console.error('WebSocket client error:', error);
-    });
-  });
-
-  // Note: Upstash Redis REST API doesn't support pub/sub directly
-  // You'll need to use polling or a different approach for real-time updates
-  // For now, we'll skip the Redis pub/sub setup
+// Helper function for distributed locks
+export const withLock = async <T>(
+  lockKey: string,
+  fn: () => Promise<T>,
+  ttlSeconds = 30
+): Promise<T> => {
+  const lockValue = `${Date.now()}-${Math.random()}`;
   
-  res.end();
-}
+  try {
+    const acquired = await redis.set(lockKey, lockValue, {
+      nx: true,
+      ex: ttlSeconds,
+    });
+    
+    if (!acquired) {
+      throw new Error('Could not acquire lock. Another operation is in progress.');
+    }
+    
+    try {
+      return await fn();
+    } finally {
+      const currentValue = await redis.get(lockKey);
+      if (currentValue === lockValue) {
+        await redis.del(lockKey);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Redis lock error:', error);
+    throw error;
+  }
+};
