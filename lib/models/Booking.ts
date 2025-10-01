@@ -39,12 +39,12 @@ export const BookingHelpers = {
   },
   
   canConfirm: (booking: Booking): boolean => {
-    return (
-      booking.status === 'ASSIGNED' &&
-      booking.assignedPartner &&
-      booking.document?.every(d => d.status === 'APPROVED')
-    );
-  },
+  return (
+    booking.status === 'ASSIGNED' &&
+    !!booking.assignedPartner &&
+    (booking.document?.every(d => d.status === 'APPROVED') ?? false)
+  )
+},
   
   getAllPendingDocuments: (booking: Booking): Document[] => {
     return booking.document?.filter(d => d.status === 'PENDING') || [];
