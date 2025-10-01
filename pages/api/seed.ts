@@ -1,6 +1,7 @@
 // pages/api/seed.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { connectToDatabase } from "@/lib/mongodb";import { ObjectId } from "mongodb";
+import { getDatabase } from "@/lib/mongodb"; // ✅ import helper
+import { ObjectId } from "mongodb";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -8,7 +9,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const db = await connectToDatabase();
+    const db = await getDatabase();
 
     // ✅ Sample bookings
     const bookings = [
