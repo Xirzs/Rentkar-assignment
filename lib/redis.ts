@@ -1,51 +1,38 @@
-// lib/redis.ts
-import Redis from 'ioredis';
+import { NextApiRequest } from 'next';
+import { WebSocketServer } from 'ws';
+import type { WebSocket } from 'ws';
+import redis from '@/lib/redis';
 
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: 3,
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-});
+// Keep a single wss instance for hot reloads
+let wss: WebSocketServer;
 
-redis.on('connect', () => {
-  console.log('✅ Redis connected');
-});
-
-redis.on('error', (error) => {
-  console.error('❌ Redis connection error:', error);
-});
-
-export default redis;
-
-// Helper function for distributed locks
-export const withLock = async <T>(
-  lockKey: string,
-  fn: () => Promise<T>,
-  ttlSeconds = 30
-): Promise<T> => {
-  const lockValue = `${Date.now()}-${Math.random()}`;
-  
-  // Try to acquire lock
-  const acquired = await redis.set(lockKey, lockValue, 'EX', ttlSeconds, 'NX');
-  
-  if (!acquired) {
-    throw new Error('Could not acquire lock. Another operation is in progress.');
+export default function handler(req: NextApiRequest, res: any) {
+  if (res.socket.server.wss) {
+    console.log('WebSocket server already running');
+    res.end();
+    return;
   }
+
+  wss = new WebSocketServer({ server: res.socket.server });
+  res.socket.server.wss = wss;
+
+  console.log('WebSocket server started');
+
+  wss.on('connection', (ws: WebSocket) => {
+    console.log('New client connected');
+
+    ws.on('close', () => {
+      console.log('Client disconnected');
+    });
+
+    ws.on('error', (error: Error) => {
+      console.error('WebSocket client error:', error);
+    });
+  });
+
+  // Note: Upstash Redis REST API doesn't support pub/sub directly
+  // You'll need to use polling or a different approach for real-time updates
+  // For now, we'll skip the Redis pub/sub setup
   
-  try {
-    // Execute the function
-    return await fn();
-  } finally {
-    // Release lock only if we still own it
-    const script = `
-      if redis.call("get", KEYS[1]) == ARGV[1] then
-        return redis.call("del", KEYS[1])
-      else
-        return 0
-      end
-    `;
-    await redis.eval(script, 1, lockKey, lockValue);
-  }
-};
+  res.end();
+}
