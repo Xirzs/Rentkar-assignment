@@ -1,5 +1,6 @@
 import { NextApiRequest } from 'next';
-import { Server as WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
+import type { WebSocket } from 'ws';
 import Redis from 'ioredis';
 
 const redis = new Redis({
@@ -18,6 +19,9 @@ export default function handler(req: NextApiRequest, res: any) {
   }
 
   wss = new WebSocketServer({ server: res.socket.server });
+  res.socket.server.wss = wss;
+
+  console.log('WebSocket server started');
 
   wss.on('connection', (ws: WebSocket) => {
     console.log('New client connected');
@@ -44,8 +48,8 @@ export default function handler(req: NextApiRequest, res: any) {
     if (channel === 'partner:gps') {
       console.log('Broadcasting GPS update:', message);
       // Broadcast message to all connected clients
-      wss.clients.forEach((client: WebSocket) => {
-        if (client.readyState === WebSocket.OPEN) {
+      wss.clients.forEach((client: any) => {
+        if (client.readyState === 1) { // OPEN state
           client.send(message);
         }
       });
@@ -56,7 +60,5 @@ export default function handler(req: NextApiRequest, res: any) {
     console.error('Redis error:', err);
   });
 
-  res.socket.server.wss = wss;
-  console.log('WebSocket server started');
   res.end();
 }
