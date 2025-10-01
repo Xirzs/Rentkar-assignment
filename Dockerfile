@@ -4,7 +4,7 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if present)
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
 # Install dependencies
@@ -16,8 +16,8 @@ COPY . .
 # Build Next.js app
 RUN npm run build
 
-# Expose port
+# Expose port (Render will override this with PORT env var)
 EXPOSE 3000
 
-# Start the app
-CMD [ "npm", "start" ]
+# Start the app - Use PORT env var if available, fallback to 3000
+CMD ["sh", "-c", "npm start -- -p ${PORT:-3000}"]
