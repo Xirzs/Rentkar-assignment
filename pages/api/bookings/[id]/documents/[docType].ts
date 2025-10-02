@@ -1,4 +1,5 @@
-// pages/api/bookings/[id]/documents/[docId].ts
+// pages/api/bookings/[id]/documents/[docType].ts
+// RENAME FILE FROM [docId].ts TO [docType].ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { ObjectId } from 'mongodb';
 import { getDatabase } from '../../../../../lib/mongodb';
@@ -13,14 +14,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { id, docId } = req.query;
+  const { id, docType } = req.query;
 
   if (!id || typeof id !== 'string' || !ObjectId.isValid(id)) {
     return res.status(400).json({ message: 'Valid Booking ID is required' });
   }
 
-  if (!docId || typeof docId !== 'string') {
-    return res.status(400).json({ message: 'Valid Document ID is required' });
+  if (!docType || typeof docType !== 'string' || docType === 'undefined') {
+    return res.status(400).json({ message: 'Valid Document Type is required' });
   }
 
   const { status } = req.body;
@@ -44,18 +45,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     console.log('Documents:', booking.document);
-    console.log('Looking for docId:', docId);
+    console.log('Looking for docType:', docType);
 
-    const docIndex = booking.document.findIndex((doc: any) => String(doc._id) === String(docId));
+    // Find document by docType instead of _id
+    const docIndex = booking.document.findIndex((doc: any) => doc.docType === docType);
     console.log('Document index:', docIndex);
 
     if (docIndex === -1) {
-      return res.status(404).json({ message: 'Document not found in booking' });
+      return res.status(404).json({ 
+        message: `Document with type ${docType} not found in booking`,
+        availableTypes: booking.document.map((d: any) => d.docType)
+      });
     }
 
     const updateField = `document.${docIndex}.status`;
     
-    await db.collection('bookings').updateOne(
+    const updateResult = await db.collection('bookings').updateOne(
       { _id: new ObjectId(id) },
       { 
         $set: { 
@@ -65,10 +70,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     );
 
-   res.status(200).json({
-  message: 'Document status updated successfully',
-  success: true
-});
+    console.log('Update result:', updateResult);
+
+    res.status(200).json({
+      message: 'Document status updated successfully',
+      success: true,
+      docType,
+      newStatus: status
+    });
   } catch (error) {
     console.error('Error updating document:', error);
     res.status(500).json({

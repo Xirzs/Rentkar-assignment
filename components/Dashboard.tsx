@@ -88,9 +88,17 @@ export default function Dashboard() {
   };
 
   const handleAssignPartner = async (bookingId: string, partnerId: string): Promise<void> => {
+    // Prevent multiple simultaneous assignments
+    if (actionLoading) {
+      console.log('Action already in progress, ignoring duplicate request');
+      return;
+    }
+
     try {
       setActionLoading(`assign-${bookingId}`);
       setError(null);
+
+      console.log('Assigning partner:', { bookingId, partnerId });
 
       await apiCall(`/api/bookings/${bookingId}/assign`, {
         method: "POST",
@@ -105,6 +113,7 @@ export default function Dashboard() {
       const errorMessage = e instanceof Error ? e.message : "Failed to assign partner";
       setError(errorMessage);
       alert(`❌ Error: ${errorMessage}`);
+      console.error('Assignment error:', e);
     } finally {
       setActionLoading(null);
     }
@@ -112,14 +121,23 @@ export default function Dashboard() {
 
   const handleDocumentAction = async (
     bookingId: string,
-    docId: string,
+    docType: string,
     action: "approve" | "reject"
   ): Promise<void> => {
+    // Prevent multiple simultaneous actions
+    if (actionLoading) {
+      console.log('Action already in progress, ignoring duplicate request');
+      return;
+    }
+
     try {
-      setActionLoading(`doc-${docId}`);
+      setActionLoading(`doc-${docType}-${bookingId}`);
       setError(null);
 
-      await apiCall(`/api/bookings/${bookingId}/documents/${docId}`, {
+      console.log('Document action:', { bookingId, docType, action });
+
+      // Use docType in the URL instead of docId
+      await apiCall(`/api/bookings/${bookingId}/documents/${docType}`, {
         method: "PATCH",
         body: JSON.stringify({ status: action === "approve" ? "APPROVED" : "REJECTED" }),
       });
@@ -130,12 +148,19 @@ export default function Dashboard() {
       const errorMessage = e instanceof Error ? e.message : `Failed to ${action} document`;
       setError(errorMessage);
       alert(`❌ Error: ${errorMessage}`);
+      console.error('Document action error:', e);
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleConfirmBooking = async (bookingId: string): Promise<void> => {
+    // Prevent multiple simultaneous confirmations
+    if (actionLoading) {
+      console.log('Action already in progress, ignoring duplicate request');
+      return;
+    }
+
     try {
       setActionLoading(`confirm-${bookingId}`);
       setError(null);
@@ -201,7 +226,8 @@ export default function Dashboard() {
             </div>
             <button
               onClick={fetchData}
-              className="px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+              disabled={!!actionLoading}
+              className="px-3 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Refresh
             </button>
@@ -250,7 +276,6 @@ export default function Dashboard() {
                         ].filter(Boolean).join(', ')
                       : 'No address'}
                   </p>
-
                 </div>
                 <span
                   className={`inline-block px-3 py-1 rounded-full text-xs font-semibold text-white ${getStatusColor(
@@ -267,7 +292,16 @@ export default function Dashboard() {
                 </label>
                 
                 {booking.partnerId ? (
-                  <span>{getAssignedPartnerName(booking.partnerId)}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium">
+                      {getAssignedPartnerName(booking.partnerId)}
+                    </span>
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full ${getStatusColor(
+                        partners.find((p) => p._id === booking.partnerId)?.status || "offline"
+                      )}`}
+                    />
+                  </div>
                 ) : (
                   <PartnerSelector
                     bookingId={booking._id}
@@ -278,57 +312,70 @@ export default function Dashboard() {
                 )}
 
                 {actionLoading === `assign-${booking._id}` && (
-                  <span className="text-blue-600 text-sm">Assigning...</span>
+                  <span className="text-blue-600 text-sm font-medium flex items-center">
+                    <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Assigning...
+                  </span>
                 )}
               </div>
 
               <div className="space-y-2">
                 <p className="font-medium text-slate-700">Documents:</p>
-                <ul className="space-y-1">
+                <div className="flex flex-wrap gap-2">
                   {booking.document?.map((doc) => (
-                    <li
-                      key={doc._id}
-                      className={`inline-flex items-center space-x-2 px-3 py-1 rounded border text-xs font-semibold ${getDocStatusColor(
+                    <div
+                      key={doc._id || doc.docType}
+                      className={`inline-flex items-center space-x-2 px-3 py-2 rounded border text-xs font-semibold ${getDocStatusColor(
                         doc.status
                       )}`}
                     >
                       <span>{doc.docType}</span>
-                      <div>
+                      <div className="flex items-center space-x-2">
                         {doc.status === "PENDING" ? (
                           <>
                             <button
                               disabled={!!actionLoading}
                               onClick={() =>
-                                handleDocumentAction(booking._id, doc._id, "approve")
+                                handleDocumentAction(booking._id, doc.docType, "approve")
                               }
-                              className="text-green-600 hover:underline mr-2"
+                              className="text-green-700 hover:text-green-900 hover:underline disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                             >
                               Approve
                             </button>
+                            <span className="text-slate-300">|</span>
                             <button
                               disabled={!!actionLoading}
                               onClick={() =>
-                                handleDocumentAction(booking._id, doc._id, "reject")
+                                handleDocumentAction(booking._id, doc.docType, "reject")
                               }
-                              className="text-red-600 hover:underline"
+                              className="text-red-700 hover:text-red-900 hover:underline disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                             >
                               Reject
                             </button>
                           </>
                         ) : (
-                          <span>{doc.status}</span>
+                          <span className="font-semibold">• {doc.status}</span>
                         )}
                       </div>
-                    </li>
+                      {actionLoading === `doc-${doc.docType}-${booking._id}` && (
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      )}
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
 
               <div className="mt-4">
                 <button
                   disabled={!canConfirmBooking(booking) || !!actionLoading}
                   onClick={() => handleConfirmBooking(booking._id)}
-                  className={`px-4 py-2 rounded-md font-semibold text-white ${
+                  className={`px-4 py-2 rounded-md font-semibold text-white transition-colors ${
                     canConfirmBooking(booking)
                       ? "bg-emerald-600 hover:bg-emerald-700"
                       : "bg-gray-400 cursor-not-allowed"
@@ -338,6 +385,11 @@ export default function Dashboard() {
                     ? "Confirming..."
                     : "Confirm Booking"}
                 </button>
+                {!canConfirmBooking(booking) && booking.status === "ASSIGNED" && (
+                  <p className="text-xs text-slate-500 mt-2">
+                    All documents must be approved before confirming
+                  </p>
+                )}
               </div>
             </section>
           ))

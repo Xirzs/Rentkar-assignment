@@ -11,6 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { id } = req.query;
   const { partnerId } = req.body;
 
+  console.log('=== ASSIGNMENT API CALLED ===');
   console.log('Assignment request:', { id, partnerId });
 
   if (!id || typeof id !== 'string' || !ObjectId.isValid(id)) {
@@ -28,14 +29,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const booking = await db.collection('bookings').findOne({ _id: new ObjectId(id) });
 
     if (!booking) {
+      console.log('Booking not found');
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    if (booking.status !== 'PENDING') {
-      return res.status(400).json({ message: `Booking cannot be assigned. Current status: ${booking.status}` });
+    console.log('Full booking document:', JSON.stringify(booking, null, 2));
+    console.log('Booking status field:', booking.status);
+    console.log('Booking status type:', typeof booking.status);
+
+    // Handle missing or undefined status - check for common field names
+    let currentStatus = booking.status || booking.bookingStatus || booking.state;
+    
+    if (!currentStatus) {
+      console.log('Status field is missing or undefined');
+      return res.status(400).json({ 
+        message: 'Booking status is missing from the database. Please ensure the booking has a valid status.',
+        bookingId: id,
+        availableFields: Object.keys(booking)
+      });
+    }
+
+    // Normalize status to uppercase for comparison
+    const normalizedStatus = String(currentStatus).toUpperCase();
+    console.log('Normalized status:', normalizedStatus);
+
+    if (normalizedStatus !== 'PENDING') {
+      console.log(`Cannot assign - status is ${normalizedStatus}`);
+      return res.status(400).json({ 
+        message: `Booking cannot be assigned. Current status: ${currentStatus}` 
+      });
     }
 
     if (booking.partnerId) {
+      console.log('Booking already has partner:', booking.partnerId);
       return res.status(400).json({ message: 'Booking already has an assigned partner' });
     }
 
@@ -43,15 +69,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const partner = await db.collection('partners').findOne({ _id: new ObjectId(partnerId) });
 
     if (!partner) {
+      console.log('Partner not found');
       return res.status(404).json({ message: 'Partner not found' });
     }
+
+    console.log('Partner status:', partner.status);
 
     if (partner.status !== 'online') {
       return res.status(400).json({ message: `Partner is not available. Current status: ${partner.status}` });
     }
 
+    console.log('Updating booking to ASSIGNED status...');
+    
     // Update booking
-    await db.collection('bookings').updateOne(
+    const updateResult = await db.collection('bookings').updateOne(
       { _id: new ObjectId(id) },
       {
         $set: {
@@ -61,6 +92,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
     );
+
+    console.log('Booking update result:', updateResult);
 
     // Update partner
     await db.collection('partners').updateOne(
@@ -72,6 +105,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
     );
+
+    console.log('Assignment completed successfully');
 
     return res.status(200).json({
       message: 'Partner assigned successfully',
