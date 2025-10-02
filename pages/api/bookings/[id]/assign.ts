@@ -78,10 +78,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       30
     );
 
-    res.status(200).json({
-      message: 'Partner assigned successfully',
-      ...result
-    });
+   res.status(200).json({
+  message: 'Partner assigned successfully',
+  success: true
+});
   } catch (error) {
     console.error('Error assigning partner:', error);
     res.status(500).json({

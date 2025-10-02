@@ -65,8 +65,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     );
 
-    console.log('Document updated successfully');
-    res.status(200).json({ message: `Document ${status.toLowerCase()} successfully` });
+   res.status(200).json({
+  message: 'Document status updated successfully',
+  success: true
+});
   } catch (error) {
     console.error('Error updating document:', error);
     res.status(500).json({
