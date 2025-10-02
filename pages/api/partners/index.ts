@@ -15,7 +15,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .sort({ lastActiveAt: -1 })
       .toArray();
 
-    res.status(200).json({ partners });
+    // Serialize the data to plain objects
+    const serializedPartners = partners.map(partner => ({
+      ...partner,
+      _id: partner._id.toString(),
+      createdAt: partner.createdAt instanceof Date ? partner.createdAt.toISOString() : partner.createdAt,
+      updatedAt: partner.updatedAt instanceof Date ? partner.updatedAt.toISOString() : partner.updatedAt,
+      lastActiveAt: partner.lastActiveAt instanceof Date ? partner.lastActiveAt.toISOString() : partner.lastActiveAt,
+    }));
+
+    res.status(200).json({ partners: serializedPartners });
   } catch (error) {
     console.error('Error fetching partners:', error);
     res.status(500).json({
