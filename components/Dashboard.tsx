@@ -239,9 +239,18 @@ export default function Dashboard() {
                   <h2 className="text-lg font-semibold text-slate-900">
                     Booking ID: {booking._id}
                   </h2>
-                  <p className="text-sm text-slate-600">
-                    Location: {booking.location}, {booking.address}
+                   <p className="text-sm text-slate-600">
+                    Location: {booking.location},{" "}
+                    {(booking as any).address && typeof (booking as any).address === "object"
+                      ? [
+                          (booking as any).address.buildingAreaName,
+                          (booking as any).address.houseNumber,
+                          (booking as any).address.streetAddress,
+                          (booking as any).address.zip
+                        ].filter(Boolean).join(', ')
+                      : 'No address'}
                   </p>
+
                 </div>
                 <span
                   className={`inline-block px-3 py-1 rounded-full text-xs font-semibold text-white ${getStatusColor(
