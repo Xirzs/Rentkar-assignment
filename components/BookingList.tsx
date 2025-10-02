@@ -154,6 +154,7 @@ export default function BookingList() {
     <div style={{ padding: 20 }}>
       <h1>Rentkar Booking Management</h1>
       
+      
       {/* Summary Stats */}
       <div style={{ marginBottom: 20, display: 'flex', gap: 20 }}>
         <div style={{ padding: 10, border: '1px solid #ddd', borderRadius: 5 }}>
@@ -170,6 +171,7 @@ export default function BookingList() {
           ) || 0}
         </div>
       </div>
+      
 
       {/* Bookings List */}
       {bookings && bookings.length === 0 ? (
@@ -183,7 +185,7 @@ export default function BookingList() {
           
           return (
             <div
-              key={booking._id}
+              key={booking._id?.toString()}
               style={{
                 border: '1px solid #eee',
                 borderRadius: 8,
@@ -195,7 +197,7 @@ export default function BookingList() {
               {/* Booking Header */}
               <div style={{ marginBottom: 10 }}>
                 <h3 style={{ margin: 0, marginBottom: 5 }}>
-                  Booking ID: {booking._id}
+                  Booking ID: {booking._id?.toString()}
                 </h3>
                 <div style={{ display: 'flex', gap: 15, fontSize: 14, color: '#666' }}>
                   <span>📍 {booking.location}</span>
@@ -235,7 +237,8 @@ export default function BookingList() {
                     
                     return (
                       <div
-                        key={doc._id}
+                        key={doc._id?.toString()}
+
                         style={{
                           marginBottom: 8,
                           padding: 8,
@@ -330,7 +333,7 @@ export default function BookingList() {
                 <div style={{ marginTop: 10, padding: 8, backgroundColor: '#e7f3ff', borderRadius: 4 }}>
                   <strong>Assigned Partner:</strong>{' '}
                   {partners?.find((p) => p._id === booking.assignedPartner)?.name || 
-                   booking.assignedPartner}
+                   booking.assignedPartner.toString()}
                 </div>
               )}
 
@@ -371,6 +374,7 @@ export default function BookingList() {
           );
         })
       )}
+      
     </div>
   );
 }
