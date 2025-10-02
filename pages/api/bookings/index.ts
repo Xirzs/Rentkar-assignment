@@ -16,14 +16,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .sort({ createdAt: -1 })
       .toArray();
 
-    // Serialize the data to plain objects
-    const serializedBookings = bookings.map(booking => ({
-      ...booking,
-      _id: booking._id.toString(),
-      partnerId: booking.partnerId?.toString(),
-      createdAt: booking.createdAt instanceof Date ? booking.createdAt.toISOString() : booking.createdAt,
-      updatedAt: booking.updatedAt instanceof Date ? booking.updatedAt.toISOString() : booking.updatedAt,
-      pickupTime: booking.pickupTime instanceof Date ? booking.pickupTime.toISOString() : booking.pickupTime,
+    // Deep serialize all data including nested objects
+    const serializedBookings = JSON.parse(JSON.stringify(bookings, (key, value) => {
+      if (value && typeof value === 'object' && value._bsontype === 'ObjectID') {
+        return value.toString();
+      }
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      return value;
     }));
 
     res.status(200).json({ bookings: serializedBookings });

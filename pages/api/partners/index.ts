@@ -15,13 +15,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .sort({ lastActiveAt: -1 })
       .toArray();
 
-    // Serialize the data to plain objects
-    const serializedPartners = partners.map(partner => ({
-      ...partner,
-      _id: partner._id.toString(),
-      createdAt: partner.createdAt instanceof Date ? partner.createdAt.toISOString() : partner.createdAt,
-      updatedAt: partner.updatedAt instanceof Date ? partner.updatedAt.toISOString() : partner.updatedAt,
-      lastActiveAt: partner.lastActiveAt instanceof Date ? partner.lastActiveAt.toISOString() : partner.lastActiveAt,
+    // Deep serialize all data
+    const serializedPartners = JSON.parse(JSON.stringify(partners, (key, value) => {
+      if (value && typeof value === 'object' && value._bsontype === 'ObjectID') {
+        return value.toString();
+      }
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      return value;
     }));
 
     res.status(200).json({ partners: serializedPartners });
