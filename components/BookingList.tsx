@@ -1,4 +1,3 @@
-// components/BookingList.tsx
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PartnerSelector from './PartnerSelector';
@@ -154,24 +153,22 @@ export default function BookingList() {
     <div style={{ padding: 20 }}>
       <h1>Rentkar Booking Management</h1>
       
-      
       {/* Summary Stats */}
       <div style={{ marginBottom: 20, display: 'flex', gap: 20 }}>
         <div style={{ padding: 10, border: '1px solid #ddd', borderRadius: 5 }}>
-          <strong>Total Bookings:</strong> {bookings?.length || 0}
+          <strong>Total Bookings:</strong> {bookings?.length ?? 0}
         </div>
         <div style={{ padding: 10, border: '1px solid #ddd', borderRadius: 5 }}>
-          <strong>Pending:</strong> {bookings?.filter(b => b.status === 'PENDING').length || 0}
+          <strong>Pending:</strong> {bookings?.filter(b => b.status === 'PENDING').length ?? 0}
         </div>
         <div style={{ padding: 10, border: '1px solid #ddd', borderRadius: 5 }}>
           <strong>Pending Docs:</strong>{' '}
           {bookings?.reduce(
-            (count, b) => count + (b.document?.filter((d) => d.status === 'PENDING').length || 0),
+            (count, b) => count + (b.document?.filter((d) => d.status === 'PENDING').length ?? 0),
             0
-          ) || 0}
+          ) ?? 0}
         </div>
       </div>
-      
 
       {/* Bookings List */}
       {bookings && bookings.length === 0 ? (
@@ -180,12 +177,12 @@ export default function BookingList() {
         </div>
       ) : (
         bookings?.map((booking) => {
-          // Add type guard to ensure _id exists
+          // Add type guard to ensure _id exists and is stringifiable
           if (!booking._id) return null;
           
           return (
             <div
-              key={booking._id?.toString()}
+              key={booking._id.toString()}
               style={{
                 border: '1px solid #eee',
                 borderRadius: 8,
@@ -197,11 +194,11 @@ export default function BookingList() {
               {/* Booking Header */}
               <div style={{ marginBottom: 10 }}>
                 <h3 style={{ margin: 0, marginBottom: 5 }}>
-                  Booking ID: {booking._id?.toString()}
+                  Booking ID: {booking._id.toString()}
                 </h3>
                 <div style={{ display: 'flex', gap: 15, fontSize: 14, color: '#666' }}>
-                  <span>📍 {booking.location}</span>
-                  <span>💰 ₹{booking.priceBreakDown.grandTotal}</span>
+                  <span>📍 {booking.location ?? "Unknown location"}</span>
+                  <span>💰 ₹{booking.priceBreakDown?.grandTotal ?? "N/A"}</span>
                   <span
                     style={{
                       padding: '2px 8px',
@@ -232,13 +229,12 @@ export default function BookingList() {
                     Documents ({booking.document.length}):
                   </h4>
                   {booking.document.map((doc) => {
-                    // Add type guard for doc._id
+                    // Add type guard for doc._id and safe rendering for docType and status
                     if (!doc._id) return null;
                     
                     return (
                       <div
-                        key={doc._id?.toString()}
-
+                        key={doc._id.toString()}
                         style={{
                           marginBottom: 8,
                           padding: 8,
@@ -250,7 +246,7 @@ export default function BookingList() {
                         }}
                       >
                         <span style={{ fontSize: 14 }}>
-                          <strong>{doc.docType}:</strong>{' '}
+                          <strong>{doc.docType ?? "Document"}:</strong>{' '}
                           <span
                             style={{
                               color:
@@ -316,7 +312,7 @@ export default function BookingList() {
                 </div>
               )}
 
-              {/* ✨ NEW: Partner Selector Component */}
+              {/* Partner Selector Component */}
               {booking.status === 'PENDING' && !booking.assignedPartner && (
                 <div style={{ marginTop: 15, padding: 15, background: '#f9fafb', borderRadius: 8 }}>
                   <PartnerSelector
@@ -332,7 +328,7 @@ export default function BookingList() {
               {booking.assignedPartner && (
                 <div style={{ marginTop: 10, padding: 8, backgroundColor: '#e7f3ff', borderRadius: 4 }}>
                   <strong>Assigned Partner:</strong>{' '}
-                  {partners?.find((p) => p._id === booking.assignedPartner)?.name || 
+                  {partners?.find((p) => p._id === booking.assignedPartner)?.name ?? 
                    booking.assignedPartner.toString()}
                 </div>
               )}
