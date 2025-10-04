@@ -1,57 +1,62 @@
 // lib/redis.ts
-import { Redis } from '@upstash/redis';
+import Redis from 'ioredis';
 
-// Use REST variables if available, fall back to regular variables
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.UPSTASH_REDIS_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.UPSTASH_REDIS_TOKEN;
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-if (!redisUrl || !redisToken) {
-  console.error('❌ Missing Redis configuration. Available env vars:', {
-    hasRestUrl: !!process.env.UPSTASH_REDIS_REST_URL,
-    hasUrl: !!process.env.UPSTASH_REDIS_URL,
-    hasRestToken: !!process.env.UPSTASH_REDIS_REST_TOKEN,
-    hasToken: !!process.env.UPSTASH_REDIS_TOKEN,
-  });
-  throw new Error('Redis configuration missing');
-}
+let cachedRedis: Redis | null = null;
 
-const redis = new Redis({
-  url: redisUrl,
-  token: redisToken,
-});
+export async function getRedisClient(): Promise<Redis> {
+  if (cachedRedis && cachedRedis.status === 'ready') {
+    return cachedRedis;
+  }
 
-console.log('✅ Upstash Redis configured with URL:', redisUrl);
-
-export default redis;
-
-// Helper function for distributed locks
-export const withLock = async <T>(
-  lockKey: string,
-  fn: () => Promise<T>,
-  ttlSeconds = 30
-): Promise<T> => {
-  const lockValue = `${Date.now()}-${Math.random()}`;
-  
   try {
-    const acquired = await redis.set(lockKey, lockValue, {
-      nx: true,
-      ex: ttlSeconds,
-    });
-    
-    if (!acquired) {
-      throw new Error('Could not acquire lock. Another operation is in progress.');
-    }
-    
-    try {
-      return await fn();
-    } finally {
-      const currentValue = await redis.get(lockKey);
-      if (currentValue === lockValue) {
-        await redis.del(lockKey);
+    const redis = new Redis(REDIS_URL, {
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      retryStrategy(times) {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+      reconnectOnError(err) {
+        const targetError = 'READONLY';
+        if (err.message.includes(targetError)) {
+          return true;
+        }
+        return false;
       }
-    }
+    });
+
+    redis.on('connect', () => {
+      console.log('✅ Redis connected');
+    });
+
+    redis.on('ready', () => {
+      console.log('✅ Redis ready');
+    });
+
+    redis.on('error', (err) => {
+      console.error('❌ Redis error:', err);
+    });
+
+    // Wait for connection
+    await new Promise((resolve, reject) => {
+      redis.once('ready', resolve);
+      redis.once('error', reject);
+      setTimeout(() => reject(new Error('Redis connection timeout')), 5000);
+    });
+
+    cachedRedis = redis;
+    return redis;
   } catch (error) {
-    console.error('❌ Redis lock error:', error);
+    console.error('Redis connection error:', error);
     throw error;
   }
-};
+}
+
+export async function closeRedisClient(): Promise<void> {
+  if (cachedRedis) {
+    await cachedRedis.quit();
+    cachedRedis = null;
+  }
+}
