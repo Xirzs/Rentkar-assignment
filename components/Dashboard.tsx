@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import LiveGpsTable, { GpsData } from "./LiveGpsTable";
 import type { Booking, Partner, DocumentStatus } from "../lib/mockData";
 import PartnerSelector from "./PartnerSelector";
+import { useSSE } from "../hooks/useSSE";
 
 const USE_REAL_API = true;
 
@@ -54,6 +55,50 @@ export default function Dashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "assigned" | "confirmed">("all");
   const [error, setError] = useState<string | null>(null);
+  const [liveUpdatesEnabled, setLiveUpdatesEnabled] = useState(true);
+
+  // Handle SSE messages
+  const handleSSEMessage = useCallback((message: any) => {
+    console.log('SSE message received:', message);
+
+    if (message.type === 'partner:gps-update') {
+      // Update GPS data in real-time
+      setGpsData(prev => {
+        const index = prev.findIndex(g => g.id === message.partnerId);
+        if (index !== -1) {
+          const updated = [...prev];
+          updated[index] = {
+            id: message.partnerId,
+            name: message.name || updated[index].name,
+            lat: message.lat,
+            lng: message.lng,
+            updatedAt: message.updatedAt || new Date().toISOString()
+          };
+          return updated;
+        } else {
+          // Add new GPS data if not found
+          return [...prev, {
+            id: message.partnerId,
+            name: message.name || 'Unknown',
+            lat: message.lat,
+            lng: message.lng,
+            updatedAt: message.updatedAt || new Date().toISOString()
+          }];
+        }
+      });
+    } else if (message.type === 'booking:confirmed') {
+      // Refresh bookings when one is confirmed
+      fetchData();
+    } else if (message.type === 'heartbeat') {
+      // Just keep connection alive, no action needed
+    }
+  }, []);
+
+  // Connect to SSE if enabled
+  const { connected: sseConnected, error: sseError } = useSSE(
+    liveUpdatesEnabled ? '/api/sse' : '',
+    handleSSEMessage
+  );
 
   useEffect(() => {
     fetchData();
