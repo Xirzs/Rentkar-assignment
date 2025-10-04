@@ -15,7 +15,7 @@ async function seedDatabase() {
     
     const db = client.db(dbName);
     
-    // Clear existing data
+    // Clear existing dataa
     console.log('🗑️  Clearing existing data...');
     await db.collection('bookings').deleteMany({});
     await db.collection('partners').deleteMany({});
