@@ -58,13 +58,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         return { success: true };
       },
-      30
+      {
+        timeout: 30000, // 30 seconds in milliseconds
+        retryDelay: 100,
+        maxRetries: 50
+      }
     );
 
     res.status(200).json({
-  message: 'Booking confirmed successfully',
-  success: true
-});
+      message: 'Booking confirmed successfully',
+      success: true
+    });
   } catch (error) {
     console.error('Error confirming booking:', error);
     res.status(500).json({

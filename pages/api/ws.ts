@@ -1,7 +1,7 @@
 import { NextApiRequest } from 'next';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
-import redis from '@/lib/redis';
+import { getRedisClient } from '@/lib/redis'; // Changed from default import
 
 // Keep a single wss instance for hot reloads
 let wss: WebSocketServer;
