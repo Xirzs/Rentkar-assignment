@@ -64,18 +64,40 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
 
-      const [bookingsResponse, partnersResponse, gpsResponse] = await Promise.all([
+      const [bookingsResponse, partnersResponse] = await Promise.all([
         apiCall("/api/bookings"),
         apiCall("/api/partners"),
-        apiCall("/api/gps"),
       ]);
 
-      setBookings(bookingsResponse.bookings ?? bookingsResponse ?? []);
-      setPartners(partnersResponse.partners ?? partnersResponse ?? []);
-      setGpsData(gpsResponse.gps ?? gpsResponse ?? []);
+      const fetchedBookings = bookingsResponse.bookings ?? bookingsResponse ?? [];
+      const fetchedPartners = partnersResponse.partners ?? partnersResponse ?? [];
+      
+      setBookings(fetchedBookings);
+      setPartners(fetchedPartners);
+
+      // Try to fetch GPS data, fall back to partner locations if GPS endpoint doesn't exist
+      try {
+        const gpsResponse = await apiCall("/api/gps");
+        setGpsData(gpsResponse.gps ?? gpsResponse ?? []);
+      } catch (gpsError) {
+        console.log('GPS endpoint not available, using partner locations');
+        // Fall back to creating GPS data from partners
+        const partnerGpsData = fetchedPartners
+          .filter((p: Partner) => p.currentLocation?.coordinates || p.location)
+          .map((p: Partner) => ({
+            id: p._id,
+            name: p.name,
+            // Support both database format (currentLocation.coordinates) and mock format (location.lat/lng)
+            lat: p.currentLocation?.coordinates?.[1] ?? p.location?.lat ?? 0,
+            lng: p.currentLocation?.coordinates?.[0] ?? p.location?.lng ?? 0,
+            updatedAt: p.lastUpdated || p.location?.lastUpdated || new Date().toISOString()
+          }));
+        setGpsData(partnerGpsData);
+      }
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : "Failed to fetch data";
       setError(errorMsg);
+      console.error('Fetch error:', e);
 
       if (!USE_REAL_API) {
         const { mockApi } = await import("../lib/mockData");
@@ -257,13 +279,13 @@ export default function Dashboard() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 pb-32 space-y-6">
-        {/* GPS Table Section */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Live GPS Data</h2>
-          <LiveGpsTable data={gpsData} />
-        </div>
+        {gpsData.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Live GPS Data</h2>
+            <LiveGpsTable data={gpsData} />
+          </div>
+        )}
 
-        {/* Bookings Section */}
         {filteredBookings.length === 0 ? (
           <p className="text-center text-slate-500 mt-12">No bookings found.</p>
         ) : (

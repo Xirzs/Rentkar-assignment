@@ -1,4 +1,5 @@
 // lib/mockData.ts
+// lib/mockData.ts
 
 export type PartnerStatus = "online" | "busy" | "offline";
 export type BookingStatus = "PENDING" | "ASSIGNED" | "CONFIRMED";
@@ -10,11 +11,18 @@ export interface Partner {
   email: string;
   phone: string;
   status: PartnerStatus;
+  // Support both formats for backwards compatibility
   location?: {
     lat: number;
     lng: number;
     lastUpdated: string;
   };
+  // MongoDB GeoJSON format (used by database)
+  currentLocation?: {
+    type: "Point";
+    coordinates: [number, number]; // [longitude, latitude]
+  };
+  lastUpdated?: string;
   vehicleInfo?: {
     type: string;
     model: string;
@@ -60,7 +68,8 @@ export interface Booking {
   notes?: string;
 }
 
-// Mock Partners Data
+// Rest of your mockData remains the same...
+// Keep all your existing mockPartners, mockBookings, and mockApi code// Mock Partners Data
 export const mockPartners: Partner[] = [
   {
     _id: "partner_1",
